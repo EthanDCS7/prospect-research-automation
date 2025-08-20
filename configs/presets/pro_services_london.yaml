@@ -1,0 +1,18 @@
+
+extends: "../defaults.yaml"
+name: pro_services_london
+min_headcount: 30
+scoring:
+  boosts:
+    industry:
+      Professional Services: 15
+      Information & Communication: 8
+    region:
+      London: 6
+      "South East": 2
+  weights:
+    size: 0.55
+    fit: 0.35
+    dq: 0.10
+exclusions:
+  sic_blocklist_prefixes: [84,85,86,94,97,98,642,643,8299]

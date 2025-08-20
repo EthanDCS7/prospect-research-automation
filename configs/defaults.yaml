@@ -1,0 +1,51 @@
+
+version: 1
+name: defaults
+exclusions:
+  statuses: ["dissolved", "converted/closed"]
+  company_types_blocklist: ["private-limited-guarant-nsc-limited-exemption"]
+  sic_blocklist_prefixes: [84,85,86,94,97,98,642,643]
+min_headcount: 20
+scoring:
+  bands:
+    employees:
+      "0-19": 0
+      "20-49": 25
+      "50-99": 40
+      "100-249": 55
+      "250-99999": 60
+  weights:
+    size: 0.6
+    fit: 0.3
+    dq: 0.1
+  boosts:
+    industry:
+      Professional Services: 12
+      Information & Communication: 10
+      Financial Services: 10
+      Manufacturing: 6
+      Transportation & Storage: 5
+    region:
+      London: 5
+      "South East": 3
+  recency:
+    accounts_months_12: 5
+    accounts_months_24: 2
+dq:
+  fail_threshold: 60
+  penalties:
+    postcode_invalid: 10
+    sic_missing: 10
+    duplicate: 15
+    financials_outdated: 8
+exports:
+  business_view_columns: 
+    - company_name_clean
+    - region
+    - industry_group
+    - employees_accounts
+    - turnover_accounts
+    - status
+    - website
+    - best_contact
+    - composite_score
