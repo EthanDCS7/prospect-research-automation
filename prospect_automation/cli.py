@@ -45,32 +45,63 @@ def score(input: str = typer.Option(..., "--input", help="Input targets CSV"),
           output: str = typer.Option("data/outputs/shortlist.csv", "--output", help="Output CSV path"),
           top: int = typer.Option(100, "--top", help="Top N to export"),
           config: Optional[str] = typer.Option(None, "--config", help="Path to config YAML"),
-          preset: Optional[str] = typer.Option(None, "--preset", help="Preset name (without .yaml)")):
-    """Stub scoring command: loads config, reads input, assigns dummy scores for now."""
+          preset: Optional[str] = typer.Option(None, "--preset", help="Preset name (without .yaml)"),
+          fallback_employees: Optional[int] = typer.Option(None, "--fallback-employees", help="If CSV lacks employees, use this number for preliminary scoring"),
+          industry_col: str = typer.Option("industry_group", help="Column name for industry group if present"),
+          region_col: str = typer.Option("region", help="Column name for region if present")):
+    """
+    Config-driven scoring. Reads bands/weights/boosts from YAML.
+    Outputs contributions and an exclusion reason (if any).
+    """
+    from .scoring import compute_score
+
     cfg = _load_cfg(config, preset)
-    rows = []
+
+    # read records
+    import csv, os
+    rows_in = []
     with open(input, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            # For now: very simple placeholder scoring using min_headcount only.
-            # We'll replace with real scoring once enrichment is implemented.
-            employees = 50  # placeholder
-            base = 40 if employees >= cfg.min_headcount else 5
-            composite = base + int(10 * cfg.scoring.weights.fit) + int(10 * cfg.scoring.weights.dq)
-            row_out = {
-                "company_name": row.get("company_name", ""),
-                "postcode": row.get("postcode", ""),
-                "composite_score": composite,
-                "exclusion_reason": "" if employees >= cfg.min_headcount else "below_min_headcount",
-            }
-            rows.append(row_out)
-    rows = sorted(rows, key=lambda r: r["composite_score"], reverse=True)[:top]
+            rows_in.append(row)
+
+    rows_out = []
+    for row in rows_in:
+        industry_val = row.get(industry_col) or None
+        region_val = row.get(region_col) or None
+        composite, contribs, excl = compute_score(
+            row=row,
+            cfg=cfg,
+            fallback_employees=fallback_employees,
+            industry_group=industry_val,
+            region=region_val,
+            dq_score=10,  # placeholder until DQ module is wired
+        )
+        out = {
+            "company_name": row.get("company_name", row.get("company_name_clean", "")),
+            "postcode": row.get("postcode", ""),
+            "industry_group": industry_val or "",
+            "region": region_val or "",
+            "composite_score": composite,
+            "exclusion_reason": excl or "",
+            **contribs,
+        }
+        rows_out.append(out)
+
+    rows_out.sort(key=lambda r: (r["exclusion_reason"] != "", -r["composite_score"]))
+    rows_out = rows_out[:top]
+
     os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        fieldnames = list(rows_out[0].keys()) if rows_out else [
+            "company_name","postcode","industry_group","region","composite_score","exclusion_reason",
+            "size_contrib","fit_contrib","dq_contrib","industry_boost","region_boost"
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(rows)
-    rprint(f"[green]Wrote shortlist:[/green] {output} (top {len(rows)})")
+        writer.writerows(rows_out)
+
+    rprint(f"[green]Wrote shortlist:[/green] {output} (top {len(rows_out)})")
 
 @app.callback()
 def main():
