@@ -30,3 +30,9 @@ prospect score --preset pro_services_london --top 50 --input inputs/sample_targe
 > This scaffold includes working config/preset loading & validation, 
 > a deep-merge `extends` feature, and stub CLI commands for presets and scoring.
 > Enrichment (Companies House, financials, web meta) will be added next.
+
+prospect score --preset pro_services_london \
+  --input inputs/sample_targets.csv \
+  --output data/outputs/shortlist.csv \
+  --top 50 \
+  --fallback-employees 50
